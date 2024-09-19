@@ -1,4 +1,5 @@
 import clip
+import clip/internal/errors
 import clip/opt
 import gleam/float
 import gleam/int
@@ -19,7 +20,7 @@ pub fn opt_test() {
   |> should.equal(Ok(value))
 
   clip.run(command, [])
-  |> should.equal(Error("missing required arg: --" <> name))
+  |> should.equal(errors.fail("missing required arg: --" <> name))
 }
 
 pub fn try_map_test() {

@@ -4,6 +4,7 @@ import clip/arg.{type Arg}
 import clip/flag.{type Flag}
 import clip/internal/aliases.{type Args, type ArgsFn, type FnResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
+import clip/internal/errors.{type ClipErrors}
 import clip/opt.{type Opt}
 import gleam/list
 import gleam/option.{Some}
@@ -35,7 +36,7 @@ pub fn apply(ma: Command(a), mf: fn(a) -> Command(b)) -> Command(b) {
         let #(next_default, result) = mf(default).f(args)
         let new_results = case result {
           Ok(_) -> Error(e1)
-          Error(e2) -> Error(e1 <> "\n" <> e2)
+          Error(e2) -> Error(list.append(e1, e2))
         }
         #(next_default, new_results)
       }
@@ -61,7 +62,9 @@ pub fn command(f: fn(a) -> b) -> Command(fn(a) -> b) {
 
 /// Creates a `Command` that always produces `Error(message)` when run.
 pub fn fail(default: a, message: String) -> Command(a) {
-  Command(info: arg_info.empty(), f: fn(_args) { #(default, Error(message)) })
+  Command(info: arg_info.empty(), f: fn(_args) {
+    #(default, errors.fail(message))
+  })
 }
 
 /// Parse an option built using the `clip/opt` module and provide it to a
@@ -150,7 +153,7 @@ fn run_subcommands(
   case subcommands, args {
     [#(name, command), ..], [head, ..rest] if name == head -> command.f(rest)
     [_, ..rest], _ -> run_subcommands(rest, default, args)
-    [], _ -> #(default, Error("No subcommand provided"))
+    [], _ -> #(default, errors.fail("No subcommand provided"))
   }
 }
 
@@ -226,7 +229,7 @@ pub fn add_help(
         ["-h", ..] | ["--help", ..] -> {
           #(
             default,
-            Error(arg_info.help_text(
+            errors.fail(arg_info.help_text(
               arg_info.merge(command.info, help_info),
               name,
               description,
@@ -241,7 +244,7 @@ pub fn add_help(
 
 /// Run a command. Running a `Command(a)` will return either `Ok(a)` or an
 /// `Error(String)`. The `Error` value is intended to be printed to the user.
-pub fn run(command: Command(a), args: List(String)) -> Result(a, String) {
+pub fn run(command: Command(a), args: List(String)) -> Result(a, ClipErrors) {
   case command.f(args) {
     #(_, Ok(#(a, _))) -> Ok(a)
     #(_, Error(e)) -> Error(e)

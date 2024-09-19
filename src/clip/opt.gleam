@@ -3,6 +3,7 @@
 
 import clip/internal/aliases.{type Args, type FnResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, NamedInfo}
+import clip/internal/errors
 import gleam/float
 import gleam/int
 import gleam/option.{type Option, None, Some}
@@ -183,7 +184,7 @@ pub fn run(opt: Opt(a), args: Args) -> FnResult(a) {
     [key, val, ..rest], _ if key == long_name || Some(key) == short_name -> {
       case opt.try_map(val) {
         #(default, Ok(a)) -> #(default, Ok(#(a, rest)))
-        #(default, Error(e)) -> #(default, Error(e))
+        #(default, Error(e)) -> #(default, errors.fail(e))
       }
     }
     [head, ..rest], _ -> {
@@ -192,6 +193,9 @@ pub fn run(opt: Opt(a), args: Args) -> FnResult(a) {
       #(default, result)
     }
     [], Some(v) -> #(v, Ok(#(v, [])))
-    [], None -> #(opt.try_map("").0, Error("missing required arg: " <> names))
+    [], None -> #(
+      opt.try_map("").0,
+      errors.fail("missing required arg: " <> names),
+    )
   }
 }
