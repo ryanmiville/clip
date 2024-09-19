@@ -3,7 +3,7 @@
 
 import clip/internal/aliases.{type Args, type FnResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, NamedInfo}
-import clip/internal/errors
+import clip/internal/errors.{MissingOption, TryMapFailed}
 import gleam/float
 import gleam/int
 import gleam/option.{type Option, None, Some}
@@ -178,13 +178,11 @@ pub fn float(opt: Opt(String)) -> Opt(Float) {
 pub fn run(opt: Opt(a), args: Args) -> FnResult(a) {
   let long_name = "--" <> opt.name
   let short_name = option.map(opt.short, fn(s) { "-" <> s })
-  let names = short_name |> option.map(fn(s) { [s] }) |> option.unwrap([])
-  let names = [long_name, ..names] |> string.join(", ")
   case args, opt.default {
     [key, val, ..rest], _ if key == long_name || Some(key) == short_name -> {
       case opt.try_map(val) {
         #(default, Ok(a)) -> #(default, Ok(#(a, rest)))
-        #(default, Error(e)) -> #(default, errors.fail(e))
+        #(default, Error(e)) -> #(default, errors.fail(TryMapFailed(e)))
       }
     }
     [head, ..rest], _ -> {
@@ -195,7 +193,7 @@ pub fn run(opt: Opt(a), args: Args) -> FnResult(a) {
     [], Some(v) -> #(v, Ok(#(v, [])))
     [], None -> #(
       opt.try_map("").0,
-      errors.fail("missing required arg: " <> names),
+      errors.fail(MissingOption(opt.name, opt.short)),
     )
   }
 }

@@ -1,8 +1,9 @@
 import clip
-import clip/internal/errors
+import clip/internal/errors.{MissingOption}
 import clip/opt
 import gleam/float
 import gleam/int
+import gleam/option.{None}
 import gleam/string
 import gleeunit/should
 import qcheck
@@ -20,7 +21,7 @@ pub fn opt_test() {
   |> should.equal(Ok(value))
 
   clip.run(command, [])
-  |> should.equal(errors.fail("missing required arg: --" <> name))
+  |> should.equal(errors.fail(MissingOption(name, None)))
 }
 
 pub fn try_map_test() {

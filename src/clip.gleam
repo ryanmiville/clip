@@ -4,10 +4,16 @@ import clip/arg.{type Arg}
 import clip/flag.{type Flag}
 import clip/internal/aliases.{type Args, type ArgsFn, type FnResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
-import clip/internal/errors.{type ClipErrors}
+import clip/internal/errors.{Help, NoSubcommandsProvided}
 import clip/opt.{type Opt}
 import gleam/list
 import gleam/option.{Some}
+
+pub type ClipError =
+  errors.ClipError
+
+pub type ClipErrors =
+  errors.ClipErrors
 
 pub opaque type Command(a) {
   Command(info: ArgInfo, f: ArgsFn(a))
@@ -61,9 +67,9 @@ pub fn command(f: fn(a) -> b) -> Command(fn(a) -> b) {
 }
 
 /// Creates a `Command` that always produces `Error(message)` when run.
-pub fn fail(default: a, message: String) -> Command(a) {
+pub fn fail(default: a, error: ClipError) -> Command(a) {
   Command(info: arg_info.empty(), f: fn(_args) {
-    #(default, errors.fail(message))
+    #(default, errors.fail(error))
   })
 }
 
@@ -153,7 +159,7 @@ fn run_subcommands(
   case subcommands, args {
     [#(name, command), ..], [head, ..rest] if name == head -> command.f(rest)
     [_, ..rest], _ -> run_subcommands(rest, default, args)
-    [], _ -> #(default, errors.fail("No subcommand provided"))
+    [], _ -> #(default, errors.fail(NoSubcommandsProvided))
   }
 }
 
@@ -193,7 +199,7 @@ pub fn subcommands_with_default(
 pub fn subcommands(subcommands: List(#(String, Command(a)))) -> Command(a) {
   let assert Ok(#(_, cmd)) = list.first(subcommands)
   let #(default_value, _) = cmd.f([""])
-  let default = fail(default_value, "No subcommand provided")
+  let default = fail(default_value, NoSubcommandsProvided)
   let sub_names = list.map(subcommands, fn(p) { p.0 })
   let sub_arg_info = ArgInfo(..default.info, subcommands: sub_names)
   apply(
@@ -229,11 +235,13 @@ pub fn add_help(
         ["-h", ..] | ["--help", ..] -> {
           #(
             default,
-            errors.fail(arg_info.help_text(
-              arg_info.merge(command.info, help_info),
-              name,
-              description,
-            )),
+            errors.fail(
+              Help(arg_info.help_text(
+                arg_info.merge(command.info, help_info),
+                name,
+                description,
+              )),
+            ),
           )
         }
         other -> command.f(other)
@@ -249,4 +257,8 @@ pub fn run(command: Command(a), args: List(String)) -> Result(a, ClipErrors) {
     #(_, Ok(#(a, _))) -> Ok(a)
     #(_, Error(e)) -> Error(e)
   }
+}
+
+pub fn error_message(errors: ClipErrors) -> String {
+  errors.to_error_message(errors)
 }

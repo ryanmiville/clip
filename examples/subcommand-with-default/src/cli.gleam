@@ -44,7 +44,7 @@ pub fn main() {
     |> clip.run(argv.load().arguments)
 
   case result {
-    Error(e) -> io.println_error(string.join(e, "\n"))
+    Error(errors) -> clip.error_message(errors) |> io.println_error
     Ok(person) -> person |> string.inspect |> io.println
   }
 }

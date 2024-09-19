@@ -5,7 +5,7 @@ import clip/internal/arg_info.{
   type ArgInfo, type PositionalInfo, ArgInfo, Many1Repeat, ManyRepeat, NoRepeat,
   PositionalInfo,
 }
-import clip/internal/errors
+import clip/internal/errors.{EmptyArgumentList, MissingArgument, TryMapFailed}
 import gleam/float
 import gleam/int
 import gleam/list
@@ -185,16 +185,13 @@ pub fn run(arg: Arg(a), args: Args) -> FnResult(a) {
         False -> {
           case arg.try_map(head) {
             #(default, Ok(a)) -> #(default, Ok(#(a, rest)))
-            #(default, Error(e)) -> #(default, errors.fail(e))
+            #(default, Error(e)) -> #(default, errors.fail(TryMapFailed(e)))
           }
         }
       }
     }
     [], Some(v) -> #(v, Ok(#(v, [])))
-    [], None -> #(
-      arg.try_map("").0,
-      errors.fail("missing required arg: " <> arg.name),
-    )
+    [], None -> #(arg.try_map("").0, errors.fail(MissingArgument(arg.name)))
   }
 }
 
@@ -221,10 +218,7 @@ pub fn run_many1(arg: Arg(a), args: Args) -> FnResult(List(a)) {
   case run_many_aux([], arg, args) {
     #(default, Ok(#(vs, rest))) ->
       case vs {
-        [] -> #(
-          default,
-          errors.fail("must provide at least one valid value for: " <> arg.name),
-        )
+        [] -> #(default, errors.fail(EmptyArgumentList(arg.name)))
         _ -> #(default, Ok(#(vs, rest)))
       }
     #(default, Error(errors)) -> #(default, Error(errors))

@@ -1,6 +1,6 @@
 import clip
 import clip/arg
-import clip/internal/errors
+import clip/internal/errors.{MissingArgument}
 import gleam/float
 import gleam/int
 import gleam/string
@@ -17,7 +17,7 @@ pub fn arg_test() {
   |> should.equal(Ok(value))
 
   clip.run(command, [])
-  |> should.equal(errors.fail("missing required arg: arg"))
+  |> should.equal(errors.fail(MissingArgument("arg")))
 }
 
 pub fn try_map_test() {
