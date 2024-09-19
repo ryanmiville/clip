@@ -7,7 +7,6 @@ import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
 import clip/opt.{type Opt}
 import gleam/list
 import gleam/option.{Some}
-import gleam/result
 
 pub opaque type Command(a) {
   Command(info: ArgInfo, f: ArgsFn(a))
@@ -23,15 +22,24 @@ pub opaque type Command(a) {
 ///  // Ok(1)
 /// ```
 pub fn pure(val: a) -> Command(a) {
-  Command(info: arg_info.empty(), f: fn(args) { Ok(#(val, args)) })
+  Command(info: arg_info.empty(), f: fn(args) { #(val, Ok(#(val, args))) })
 }
 
 /// Don't call this function directly. Rather, call `cli.opt`, `clip.flag`, or
 /// `clip.arg`.
 pub fn apply(ma: Command(a), mf: fn(a) -> Command(b)) -> Command(b) {
   let f = fn(args) {
-    use #(ra, args1) <- result.try(ma.f(args))
-    mf(ra).f(args1)
+    case ma.f(args) {
+      #(_, Ok(#(ra, args1))) -> mf(ra).f(args1)
+      #(default, Error(e1)) -> {
+        let #(next_default, result) = mf(default).f(args)
+        let new_results = case result {
+          Ok(_) -> Error(e1)
+          Error(e2) -> Error(e1 <> "\n" <> e2)
+        }
+        #(next_default, new_results)
+      }
+    }
   }
   Command(info: ma.info, f:)
 }
@@ -52,8 +60,8 @@ pub fn command(f: fn(a) -> b) -> Command(fn(a) -> b) {
 }
 
 /// Creates a `Command` that always produces `Error(message)` when run.
-pub fn fail(message: String) -> Command(a) {
-  Command(info: arg_info.empty(), f: fn(_args) { Error(message) })
+pub fn fail(default: a, message: String) -> Command(a) {
+  Command(info: arg_info.empty(), f: fn(_args) { #(default, Error(message)) })
 }
 
 /// Parse an option built using the `clip/opt` module and provide it to a
@@ -136,12 +144,24 @@ pub fn flag(flag: Flag, next: fn(Bool) -> Command(a)) -> Command(a) {
 
 fn run_subcommands(
   subcommands: List(#(String, Command(a))),
-  default: Command(a),
+  default: a,
   args: Args,
 ) -> FnResult(a) {
   case subcommands, args {
     [#(name, command), ..], [head, ..rest] if name == head -> command.f(rest)
     [_, ..rest], _ -> run_subcommands(rest, default, args)
+    [], _ -> #(default, Error("No subcommand provided"))
+  }
+}
+
+fn run_subcommands_with_default(
+  subcommands: List(#(String, Command(a))),
+  default: Command(a),
+  args: Args,
+) -> FnResult(a) {
+  case subcommands, args {
+    [#(name, command), ..], [head, ..rest] if name == head -> command.f(rest)
+    [_, ..rest], _ -> run_subcommands_with_default(rest, default, args)
     [], _ -> default.f(args)
   }
 }
@@ -156,7 +176,11 @@ pub fn subcommands_with_default(
   let sub_names = list.map(subcommands, fn(p) { p.0 })
   let sub_arg_info = ArgInfo(..default.info, subcommands: sub_names)
   apply(
-    Command(info: sub_arg_info, f: run_subcommands(subcommands, default, _)),
+    Command(info: sub_arg_info, f: run_subcommands_with_default(
+      subcommands,
+      default,
+      _,
+    )),
     fn(a) { pure(a) },
   )
 }
@@ -164,7 +188,19 @@ pub fn subcommands_with_default(
 /// Build a command with subcommands. This is an advanced use case, see the
 /// examples directory for more help.
 pub fn subcommands(subcommands: List(#(String, Command(a)))) -> Command(a) {
-  subcommands_with_default(subcommands, fail("No subcommand provided"))
+  let assert Ok(#(_, cmd)) = list.first(subcommands)
+  let #(default_value, _) = cmd.f([""])
+  let default = fail(default_value, "No subcommand provided")
+  let sub_names = list.map(subcommands, fn(p) { p.0 })
+  let sub_arg_info = ArgInfo(..default.info, subcommands: sub_names)
+  apply(
+    Command(info: sub_arg_info, f: run_subcommands(
+      subcommands,
+      default_value,
+      _,
+    )),
+    fn(a) { pure(a) },
+  )
 }
 
 /// Add the help (`-h`, `--help`) flags to your program to display usage help
@@ -185,13 +221,18 @@ pub fn add_help(
   Command(
     ..command,
     f: fn(args) {
+      let default = command.f([""]).0
       case args {
-        ["-h", ..] | ["--help", ..] ->
-          Error(arg_info.help_text(
-            arg_info.merge(command.info, help_info),
-            name,
-            description,
-          ))
+        ["-h", ..] | ["--help", ..] -> {
+          #(
+            default,
+            Error(arg_info.help_text(
+              arg_info.merge(command.info, help_info),
+              name,
+              description,
+            )),
+          )
+        }
         other -> command.f(other)
       }
     },
@@ -202,7 +243,7 @@ pub fn add_help(
 /// `Error(String)`. The `Error` value is intended to be printed to the user.
 pub fn run(command: Command(a), args: List(String)) -> Result(a, String) {
   case command.f(args) {
-    Ok(#(a, _)) -> Ok(a)
-    Error(e) -> Error(e)
+    #(_, Ok(#(a, _))) -> Ok(a)
+    #(_, Error(e)) -> Error(e)
   }
 }

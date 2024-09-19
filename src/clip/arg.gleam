@@ -17,7 +17,7 @@ pub opaque type Arg(a) {
     name: String,
     default: Option(a),
     help: Option(String),
-    try_map: fn(String) -> Result(a, String),
+    try_map: fn(String) -> #(a, Result(a, String)),
   )
 }
 
@@ -68,12 +68,18 @@ pub fn to_arg_info_many1(arg: Arg(a)) -> ArgInfo {
 ///
 /// Note: `try_map` can change the type of an `Arg` and therefore clears any
 /// previously set default value.
-pub fn try_map(arg: Arg(a), f: fn(a) -> Result(b, String)) -> Arg(b) {
+pub fn try_map(arg: Arg(a), default: b, f: fn(a) -> Result(b, String)) -> Arg(b) {
   case arg {
     Arg(name:, default: _, help:, try_map:) ->
       Arg(name:, default: None, help:, try_map: fn(arg) {
-        use a <- result.try(try_map(arg))
-        f(a)
+        case try_map(arg) {
+          #(_, Ok(value)) ->
+            case f(value) {
+              Ok(new_value) -> #(default, Ok(new_value))
+              error -> #(default, error)
+            }
+          #(_, Error(errors)) -> #(default, Error(errors))
+        }
       })
   }
 }
@@ -88,7 +94,18 @@ pub fn try_map(arg: Arg(a), f: fn(a) -> Result(b, String)) -> Arg(b) {
 /// Note: `map` can change the type of an `Arg` and therefore clears any
 /// previously set default value.
 pub fn map(arg: Arg(a), f: fn(a) -> b) -> Arg(b) {
-  try_map(arg, fn(a) { Ok(f(a)) })
+  case arg {
+    Arg(name:, default: _, help:, try_map:) ->
+      Arg(name:, default: None, help:, try_map: fn(arg) {
+        case try_map(arg) {
+          #(_, Ok(value)) -> {
+            let new_value = f(value)
+            #(new_value, Ok(new_value))
+          }
+          #(default, Error(errors)) -> #(f(default), Error(errors))
+        }
+      })
+  }
 }
 
 /// Transform an `Arg(a)` to an `Arg(Result(a, Nil)`, making it optional.
@@ -123,7 +140,7 @@ pub fn help(arg: Arg(a), help: String) -> Arg(a) {
 /// previously set default value.
 pub fn int(arg: Arg(String)) -> Arg(Int) {
   arg
-  |> try_map(fn(val) {
+  |> try_map(0, fn(val) {
     int.parse(val)
     |> result.map_error(fn(_) { "Non-integer value provided for " <> arg.name })
   })
@@ -140,7 +157,7 @@ pub fn int(arg: Arg(String)) -> Arg(Int) {
 /// previously set default value.
 pub fn float(arg: Arg(String)) -> Arg(Float) {
   arg
-  |> try_map(fn(val) {
+  |> try_map(0.0, fn(val) {
     float.parse(val)
     |> result.map_error(fn(_) { "Non-float value provided for " <> arg.name })
   })
@@ -150,7 +167,7 @@ pub fn float(arg: Arg(String)) -> Arg(Float) {
 /// produce a `String`, which is the unmodified value given by the user on the
 /// command line.
 pub fn new(name: String) -> Arg(String) {
-  Arg(name:, default: None, help: None, try_map: Ok)
+  Arg(name:, default: None, help: None, try_map: fn(arg) { #("", Ok(arg)) })
 }
 
 /// Run an `Arg(a)` against a list of arguments. Used internally by `clip`, not
@@ -159,27 +176,34 @@ pub fn run(arg: Arg(a), args: Args) -> FnResult(a) {
   case args, arg.default {
     [head, ..rest], _ -> {
       case string.starts_with("head", "-") {
-        True ->
-          run(arg, rest)
-          |> result.map(fn(v) { #(v.0, [head, ..v.1]) })
+        True -> {
+          let #(default, result) = run(arg, rest)
+          let result = result.map(result, fn(v) { #(v.0, [head, ..v.1]) })
+          #(default, result)
+        }
         False -> {
-          use a <- result.try(arg.try_map(head))
-          Ok(#(a, rest))
+          case arg.try_map(head) {
+            #(default, Ok(a)) -> #(default, Ok(#(a, rest)))
+            #(default, Error(e)) -> #(default, Error(e))
+          }
         }
       }
     }
-    [], Some(v) -> Ok(#(v, []))
-    [], None -> Error("missing required arg: " <> arg.name)
+    [], Some(v) -> #(v, Ok(#(v, [])))
+    [], None -> #(
+      arg.try_map("").0,
+      Error("missing required arg: " <> arg.name),
+    )
   }
 }
 
 fn run_many_aux(acc: List(a), arg: Arg(a), args: Args) -> FnResult(List(a)) {
   case args {
-    [] -> Ok(#(list.reverse(acc), []))
+    [] -> #([], Ok(#(list.reverse(acc), [])))
     _ ->
       case run(arg, args) {
-        Ok(#(a, rest)) -> run_many_aux([a, ..acc], arg, rest)
-        Error(_) -> Ok(#(list.reverse(acc), args))
+        #(_, Ok(#(a, rest))) -> run_many_aux([a, ..acc], arg, rest)
+        #(_, Error(_)) -> #([], Ok(#(list.reverse(acc), args)))
       }
   }
 }
@@ -193,9 +217,15 @@ pub fn run_many(arg: Arg(a), args: Args) -> FnResult(List(a)) {
 /// Run an `Arg(a)` against a list of arguments producing one or more results.
 /// Used internally by `clip`, not intended for direct usage.
 pub fn run_many1(arg: Arg(a), args: Args) -> FnResult(List(a)) {
-  use #(vs, rest) <- result.try(run_many_aux([], arg, args))
-  case vs {
-    [] -> Error("must provide at least one valid value for: " <> arg.name)
-    _ -> Ok(#(vs, rest))
+  case run_many_aux([], arg, args) {
+    #(default, Ok(#(vs, rest))) ->
+      case vs {
+        [] -> #(
+          default,
+          Error("must provide at least one valid value for: " <> arg.name),
+        )
+        _ -> #(default, Ok(#(vs, rest)))
+      }
+    #(default, Error(errors)) -> #(default, Error(errors))
   }
 }

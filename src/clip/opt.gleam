@@ -14,7 +14,7 @@ pub opaque type Opt(a) {
     name: String,
     default: Option(a),
     help: Option(String),
-    try_map: fn(String) -> Result(a, String),
+    try_map: fn(String) -> #(a, Result(a, String)),
     short: Option(String),
   )
 }
@@ -51,12 +51,18 @@ pub fn to_arg_info(opt: Opt(a)) -> ArgInfo {
 ///
 /// Note: `try_map` can change the type of an `Opt` and therefore clears any
 /// previously set default value.
-pub fn try_map(opt: Opt(a), f: fn(a) -> Result(b, String)) -> Opt(b) {
+pub fn try_map(opt: Opt(a), default: b, f: fn(a) -> Result(b, String)) -> Opt(b) {
   case opt {
     Opt(name:, short:, default: _, help:, try_map:) ->
       Opt(name:, short:, default: None, help:, try_map: fn(arg) {
-        use a <- result.try(try_map(arg))
-        f(a)
+        case try_map(arg) {
+          #(_, Ok(value)) ->
+            case f(value) {
+              Ok(new_value) -> #(default, Ok(new_value))
+              error -> #(default, error)
+            }
+          #(_, Error(errors)) -> #(default, Error(errors))
+        }
       })
   }
 }
@@ -71,7 +77,18 @@ pub fn try_map(opt: Opt(a), f: fn(a) -> Result(b, String)) -> Opt(b) {
 /// Note: `map` can change the type of an `Opt` and therefore clears any
 /// previously set default value.
 pub fn map(opt: Opt(a), f: fn(a) -> b) -> Opt(b) {
-  try_map(opt, fn(a) { Ok(f(a)) })
+  case opt {
+    Opt(name:, short:, default: _, help:, try_map:) ->
+      Opt(name:, short:, default: None, help:, try_map: fn(arg) {
+        case try_map(arg) {
+          #(_, Ok(value)) -> {
+            let new_value = f(value)
+            #(new_value, Ok(new_value))
+          }
+          #(default, Error(errors)) -> #(f(default), Error(errors))
+        }
+      })
+  }
 }
 
 /// Provide a default value for an `Opt` when it is not provided by the user.
@@ -99,7 +116,9 @@ pub fn help(opt: Opt(a), help: String) -> Opt(a) {
 /// produce a `String`, which is the unmodified value given by the user on the
 /// command line.
 pub fn new(name: String) -> Opt(String) {
-  Opt(name:, short: None, default: None, help: None, try_map: Ok)
+  Opt(name:, short: None, default: None, help: None, try_map: fn(arg) {
+    #("", Ok(arg))
+  })
 }
 
 /// Add a short name for the given `Opt`. Short names are provided at the
@@ -130,7 +149,7 @@ pub fn short(opt: Opt(String), short_name: String) -> Opt(String) {
 /// previously set default value.
 pub fn int(opt: Opt(String)) -> Opt(Int) {
   opt
-  |> try_map(fn(val) {
+  |> try_map(0, fn(val) {
     int.parse(val)
     |> result.map_error(fn(_) { "Non-integer value provided for " <> opt.name })
   })
@@ -147,7 +166,7 @@ pub fn int(opt: Opt(String)) -> Opt(Int) {
 /// previously set default value.
 pub fn float(opt: Opt(String)) -> Opt(Float) {
   opt
-  |> try_map(fn(val) {
+  |> try_map(0.0, fn(val) {
     float.parse(val)
     |> result.map_error(fn(_) { "Non-float value provided for " <> opt.name })
   })
@@ -162,13 +181,17 @@ pub fn run(opt: Opt(a), args: Args) -> FnResult(a) {
   let names = [long_name, ..names] |> string.join(", ")
   case args, opt.default {
     [key, val, ..rest], _ if key == long_name || Some(key) == short_name -> {
-      use a <- result.try(opt.try_map(val))
-      Ok(#(a, rest))
+      case opt.try_map(val) {
+        #(default, Ok(a)) -> #(default, Ok(#(a, rest)))
+        #(default, Error(e)) -> #(default, Error(e))
+      }
     }
-    [head, ..rest], _ ->
-      run(opt, rest)
-      |> result.map(fn(v) { #(v.0, [head, ..v.1]) })
-    [], Some(v) -> Ok(#(v, []))
-    [], None -> Error("missing required arg: " <> names)
+    [head, ..rest], _ -> {
+      let #(default, result) = run(opt, rest)
+      let result = result.map(result, fn(v) { #(v.0, [head, ..v.1]) })
+      #(default, result)
+    }
+    [], Some(v) -> #(v, Ok(#(v, [])))
+    [], None -> #(opt.try_map("").0, Error("missing required arg: " <> names))
   }
 }

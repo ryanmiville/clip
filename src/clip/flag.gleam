@@ -50,12 +50,14 @@ pub fn run(flag: Flag, args: Args) -> FnResult(Bool) {
   let long_name = "--" <> flag.name
   let short_name = option.map(flag.short, fn(s) { "-" <> s })
   case args {
-    [] -> Ok(#(False, []))
+    [] -> #(False, Ok(#(False, [])))
     [head, ..rest] if long_name == head || short_name == Some(head) -> {
-      Ok(#(True, rest))
+      #(True, Ok(#(True, rest)))
     }
-    [head, ..rest] ->
-      run(flag, rest)
-      |> result.map(fn(v) { #(v.0, [head, ..v.1]) })
+    [head, ..rest] -> {
+      let #(default, result) = run(flag, rest)
+      let result = result |> result.map(fn(v) { #(v.0, [head, ..v.1]) })
+      #(default, result)
+    }
   }
 }

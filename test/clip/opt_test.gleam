@@ -30,7 +30,7 @@ pub fn try_map_test() {
 
   clip.opt(
     opt.new(name)
-      |> opt.try_map(fn(s) {
+      |> opt.try_map(0, fn(s) {
         case int.parse(s) {
           Ok(n) -> Ok(n)
           Error(Nil) -> Error("Bad int")

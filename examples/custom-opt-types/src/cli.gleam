@@ -34,7 +34,7 @@ fn third_opt() {
 fn fourth_opt() {
   opt.new("fourth")
   |> opt.help("Fourth")
-  |> opt.try_map(fn(v) {
+  |> opt.try_map(Foo, fn(v) {
     case v {
       "foo" -> Ok(Foo)
       "bar" -> Ok(Bar)
