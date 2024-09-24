@@ -1,33 +1,32 @@
-import act.{type Action, do}
 import clip/internal/validated.{type Validated, Validated}
 import clip/internal/validated as v
 import gleam/list
 
-pub type ValidatedAction(ok, error, state) =
-  Action(Validated(ok, error), state)
+pub type Parser(ok, error, state) =
+  fn(state) -> #(state, Validated(ok, error))
 
-/// Create an action that returns the given value wrapped in an `Ok`.
-///
-pub fn valid(value: ok) -> ValidatedAction(ok, error, state) {
+pub fn do(
+  first_do: Parser(a, error, state),
+  and_then: fn(Validated(a, error)) -> Parser(b, error, state),
+) -> Parser(b, error, state) {
+  fn(state) {
+    let #(state, result) = first_do(state)
+    and_then(result)(state)
+  }
+}
+
+pub fn pure(value: ok) -> Parser(ok, error, state) {
   fn(state) { #(state, v.valid(value)) }
 }
 
-/// Create an action that returns the given value wrapped in an `Error`.
-///
-pub fn invalid(
-  default: ok,
-  errors: List(error),
-) -> ValidatedAction(ok, error, state) {
+pub fn fail(default: ok, errors: List(error)) -> Parser(ok, error, state) {
   fn(state) { #(state, v.invalid(default, errors)) }
 }
 
-/// Transform the value produced by an action with the given function if it is
-/// wrapped in an `Ok`, returning the `Error` otherwise.
-///
 pub fn map(
-  action: ValidatedAction(a, error, state),
+  action: Parser(a, error, state),
   f: fn(a) -> b,
-) -> ValidatedAction(b, error, state) {
+) -> Parser(b, error, state) {
   fn(state) {
     let #(state, validated) = action(state)
 
@@ -39,23 +38,22 @@ pub fn map(
 }
 
 pub fn try(
-  first_try: ValidatedAction(a, error, state),
-  and_then: fn(a) -> ValidatedAction(b, error, state),
-) -> ValidatedAction(b, error, state) {
+  first_try: Parser(a, error, state),
+  and_then: fn(a) -> Parser(b, error, state),
+) -> Parser(b, error, state) {
   use va <- do(first_try)
   let a = v.get_or_default(va)
   use vb <- do(and_then(a))
   case va.result, vb.result {
-    Ok(_), _ -> act.return(vb)
-    Error(e1), Ok(b) -> act.return(v.invalid(b, e1))
-    Error(e1), Error(e2) ->
-      act.return(v.invalid(vb.default, list.append(e1, e2)))
+    Ok(_), _ -> return(vb)
+    Error(e1), Ok(b) -> return(v.invalid(b, e1))
+    Error(e1), Error(e2) -> return(v.invalid(vb.default, list.append(e1, e2)))
   }
 }
 
 pub fn try_all(
-  actions: List(ValidatedAction(ok, error, state)),
-) -> ValidatedAction(List(ok), error, state) {
+  actions: List(Parser(ok, error, state)),
+) -> Parser(List(ok), error, state) {
   fn(state) {
     let #(state, val) =
       list.fold(actions, #(state, v.valid([])), fn(acc, action) {
@@ -92,8 +90,8 @@ pub fn try_all(
 }
 
 pub fn try_each(
-  actions: List(ValidatedAction(ok, error, state)),
-) -> ValidatedAction(Nil, error, state) {
+  actions: List(Parser(ok, error, state)),
+) -> Parser(Nil, error, state) {
   fn(state) {
     list.fold(actions, #(state, v.valid(Nil)), fn(acc, action) {
       let #(state, Validated(_, result)) = acc
@@ -115,4 +113,8 @@ pub fn try_each(
       }
     })
   }
+}
+
+pub fn return(validated: Validated(ok, error)) -> Parser(ok, error, state) {
+  fn(state) { #(state, validated) }
 }

@@ -1,12 +1,10 @@
-import act.{do}
 import clip/arg.{type Arg}
 import clip/flag.{type Flag}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
 import clip/internal/errors.{Help, NoSubcommandsProvided}
+import clip/internal/parser.{type Parser}
 import clip/internal/state.{type State, State}
 import clip/internal/validated.{type Validated, Validated}
-import clip/internal/validated_action.{type ValidatedAction}
-import clip/internal/validated_action as va
 import clip/opt.{type Opt}
 import gleam/list
 import gleam/option.{Some}
@@ -18,16 +16,16 @@ pub type ClipErrors =
   errors.ClipErrors
 
 pub type Command(a) =
-  ValidatedAction(a, ClipError, State)
+  Parser(a, ClipError, State)
 
 pub fn pure(val: a) -> Command(a) {
-  va.valid(val)
+  parser.pure(val)
 }
 
 pub fn combine(c1: Command(a), c2: Command(b)) -> Command(b) {
-  use _ <- do(c1)
-  use b <- do(c2)
-  act.return(b)
+  use _ <- parser.do(c1)
+  use b <- parser.do(c2)
+  parser.return(b)
 }
 
 fn to_command(
@@ -50,7 +48,7 @@ fn to_command(
 }
 
 fn do_next(first: Command(a), next: fn(a) -> Command(b)) -> Command(b) {
-  use a <- va.try(first)
+  use a <- parser.try(first)
   next(a)
 }
 
