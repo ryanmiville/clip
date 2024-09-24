@@ -112,3 +112,10 @@ pub fn combine(v1: Validated(a, e), v2: Validated(b, e)) -> Validated(b, e) {
 pub fn combine_all(vs: List(Validated(a, e)), default: a) -> Validated(a, e) {
   list.fold(vs, valid(default), combine)
 }
+
+pub fn get_or_default(validated: Validated(a, e)) -> a {
+  case validated {
+    Validated(_, Ok(a)) -> a
+    Validated(a, _) -> a
+  }
+}

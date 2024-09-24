@@ -5,7 +5,12 @@ import clip/internal/arg_info.{
   type ArgInfo, type PositionalInfo, ArgInfo, Many1Repeat, ManyRepeat, NoRepeat,
   PositionalInfo,
 }
-import clip/internal/errors.{EmptyArgumentList, MissingArgument, TryMapFailed}
+import clip/internal/errors.{
+  type ClipError, EmptyArgumentList, MissingArgument, TryMapFailed,
+}
+import clip/internal/state.{type State, State}
+import clip/internal/validated.{type Validated, Validated}
+import clip/internal/validated as v
 import gleam/float
 import gleam/int
 import gleam/list
@@ -195,6 +200,35 @@ pub fn run(arg: Arg(a), args: Args) -> FnResult(a) {
   }
 }
 
+pub fn run_state(arg: Arg(a), state: State) -> #(State, Validated(a, ClipError)) {
+  let State(args, info) = state
+  case args, arg.default {
+    [head, ..rest], _ -> {
+      case string.starts_with("head", "-") {
+        True -> {
+          let #(State(new_args, new_info), validated) =
+            run_state(arg, State(rest, info))
+          #(State([head, ..new_args], new_info), validated)
+        }
+        False -> {
+          case arg.try_map(head) {
+            #(_, Ok(a)) -> #(State(rest, info), v.valid(a))
+            #(default, Error(e)) -> #(
+              state,
+              v.invalid(default, [TryMapFailed(e)]),
+            )
+          }
+        }
+      }
+    }
+    [], Some(value) -> #(state, v.valid(value))
+    [], None -> {
+      let default = arg.try_map("").0
+      #(state, v.invalid(default, [MissingArgument(arg.name)]))
+    }
+  }
+}
+
 fn run_many_aux(acc: List(a), arg: Arg(a), args: Args) -> FnResult(List(a)) {
   case args {
     [] -> #([], Ok(#(list.reverse(acc), [])))
@@ -206,10 +240,34 @@ fn run_many_aux(acc: List(a), arg: Arg(a), args: Args) -> FnResult(List(a)) {
   }
 }
 
+fn run_many_aux_state(
+  acc: List(a),
+  arg: Arg(a),
+  state: State,
+) -> #(State, Validated(List(a), ClipError)) {
+  let State(args, _) = state
+  case args {
+    [] -> #(state, v.valid(list.reverse(acc)))
+    _ ->
+      case run_state(arg, state) {
+        #(state, Validated(_, Ok(a))) ->
+          run_many_aux_state([a, ..acc], arg, state)
+        #(_, Validated(_, Error(_))) -> #(state, v.valid(list.reverse(acc)))
+      }
+  }
+}
+
 /// Run an `Arg(a)` against a list of arguments producing zero or more results.
 /// Used internally by `clip`, not intended for direct usage.
 pub fn run_many(arg: Arg(a), args: Args) -> FnResult(List(a)) {
   run_many_aux([], arg, args)
+}
+
+pub fn run_many_state(
+  arg: Arg(a),
+  state: State,
+) -> #(State, Validated(List(a), ClipError)) {
+  run_many_aux_state([], arg, state)
 }
 
 /// Run an `Arg(a)` against a list of arguments producing one or more results.
@@ -222,5 +280,19 @@ pub fn run_many1(arg: Arg(a), args: Args) -> FnResult(List(a)) {
         _ -> #(default, Ok(#(vs, rest)))
       }
     #(default, Error(errors)) -> #(default, Error(errors))
+  }
+}
+
+pub fn run_many1_state(
+  arg: Arg(a),
+  state: State,
+) -> #(State, Validated(List(a), ClipError)) {
+  case run_many_aux_state([], arg, state) {
+    #(state, Validated(_, Ok(vs))) ->
+      case vs {
+        [] -> #(state, v.invalid(vs, [EmptyArgumentList(arg.name)]))
+        _ -> #(state, v.valid(vs))
+      }
+    #(state, val) -> #(state, val)
   }
 }

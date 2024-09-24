@@ -4,6 +4,10 @@
 
 import clip/internal/aliases.{type Args, type FnResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
+import clip/internal/errors.{type ClipError}
+import clip/internal/state.{type State, State}
+import clip/internal/validated.{type Validated, Validated}
+import clip/internal/validated as v
 import gleam/option.{type Option, None, Some}
 import gleam/result
 
@@ -58,6 +62,26 @@ pub fn run(flag: Flag, args: Args) -> FnResult(Bool) {
       let #(default, result) = run(flag, rest)
       let result = result |> result.map(fn(v) { #(v.0, [head, ..v.1]) })
       #(default, result)
+    }
+  }
+}
+
+pub fn run_state(
+  flag: Flag,
+  state: State,
+) -> #(State, Validated(Bool, ClipError)) {
+  let long_name = "--" <> flag.name
+  let short_name = option.map(flag.short, fn(s) { "-" <> s })
+  let State(args, info) = state
+  case args {
+    [] -> #(state, v.valid(False))
+    [head, ..rest] if long_name == head || short_name == Some(head) -> {
+      #(State(rest, info), v.valid(True))
+    }
+    [head, ..rest] -> {
+      let #(State(new_args, new_info), validated) =
+        run_state(flag, State(rest, info))
+      #(State([head, ..new_args], new_info), validated)
     }
   }
 }
