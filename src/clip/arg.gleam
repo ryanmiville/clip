@@ -1,6 +1,6 @@
 //// Functions for building `Arg`s. An `Arg` is a positional option.
 
-import clip/internal/aliases.{type Args, type FnResult, type ParseResult}
+import clip/internal/aliases.{type ParseResult}
 import clip/internal/arg_info.{
   type ArgInfo, type PositionalInfo, ArgInfo, Many1Repeat, ManyRepeat, NoRepeat,
   PositionalInfo,
@@ -174,38 +174,14 @@ pub fn new(name: String) -> Arg(String) {
   Arg(name:, default: None, help: None, try_map: fn(arg) { #("", Ok(arg)) })
 }
 
-/// Run an `Arg(a)` against a list of arguments. Used internally by `clip`, not
-/// intended for direct usage.
-pub fn run(arg: Arg(a), args: Args) -> FnResult(a) {
-  case args, arg.default {
-    [head, ..rest], _ -> {
-      case string.starts_with("head", "-") {
-        True -> {
-          let #(default, result) = run(arg, rest)
-          let result = result.map(result, fn(v) { #(v.0, [head, ..v.1]) })
-          #(default, result)
-        }
-        False -> {
-          case arg.try_map(head) {
-            #(default, Ok(a)) -> #(default, Ok(#(a, rest)))
-            #(default, Error(e)) -> #(default, errors.fail(TryMapFailed(e)))
-          }
-        }
-      }
-    }
-    [], Some(v) -> #(v, Ok(#(v, [])))
-    [], None -> #(arg.try_map("").0, errors.fail(MissingArgument(arg.name)))
-  }
-}
-
-pub fn run_state(arg: Arg(a), state: State) -> ParseResult(a) {
+pub fn run(arg: Arg(a), state: State) -> ParseResult(a) {
   let State(args, info) = state
   case args, arg.default {
     [head, ..rest], _ -> {
       case string.starts_with("head", "-") {
         True -> {
           let #(State(new_args, new_info), validated) =
-            run_state(arg, State(rest, info))
+            run(arg, State(rest, info))
           #(State([head, ..new_args], new_info), validated)
         }
         False -> {
@@ -227,59 +203,24 @@ pub fn run_state(arg: Arg(a), state: State) -> ParseResult(a) {
   }
 }
 
-fn run_many_aux(acc: List(a), arg: Arg(a), args: Args) -> FnResult(List(a)) {
-  case args {
-    [] -> #([], Ok(#(list.reverse(acc), [])))
-    _ ->
-      case run(arg, args) {
-        #(_, Ok(#(a, rest))) -> run_many_aux([a, ..acc], arg, rest)
-        #(_, Error(_)) -> #([], Ok(#(list.reverse(acc), args)))
-      }
-  }
-}
-
-fn run_many_aux_state(
-  acc: List(a),
-  arg: Arg(a),
-  state: State,
-) -> ParseResult(List(a)) {
+fn run_many_aux(acc: List(a), arg: Arg(a), state: State) -> ParseResult(List(a)) {
   let State(args, _) = state
   case args {
     [] -> #(state, v.valid(list.reverse(acc)))
     _ ->
-      case run_state(arg, state) {
-        #(state, Validated(_, Ok(a))) ->
-          run_many_aux_state([a, ..acc], arg, state)
+      case run(arg, state) {
+        #(state, Validated(_, Ok(a))) -> run_many_aux([a, ..acc], arg, state)
         #(_, Validated(_, Error(_))) -> #(state, v.valid(list.reverse(acc)))
       }
   }
 }
 
-/// Run an `Arg(a)` against a list of arguments producing zero or more results.
-/// Used internally by `clip`, not intended for direct usage.
-pub fn run_many(arg: Arg(a), args: Args) -> FnResult(List(a)) {
-  run_many_aux([], arg, args)
+pub fn run_many(arg: Arg(a), state: State) -> ParseResult(List(a)) {
+  run_many_aux([], arg, state)
 }
 
-pub fn run_many_state(arg: Arg(a), state: State) -> ParseResult(List(a)) {
-  run_many_aux_state([], arg, state)
-}
-
-/// Run an `Arg(a)` against a list of arguments producing one or more results.
-/// Used internally by `clip`, not intended for direct usage.
-pub fn run_many1(arg: Arg(a), args: Args) -> FnResult(List(a)) {
-  case run_many_aux([], arg, args) {
-    #(default, Ok(#(vs, rest))) ->
-      case vs {
-        [] -> #(default, errors.fail(EmptyArgumentList(arg.name)))
-        _ -> #(default, Ok(#(vs, rest)))
-      }
-    #(default, Error(errors)) -> #(default, Error(errors))
-  }
-}
-
-pub fn run_many1_state(arg: Arg(a), state: State) -> ParseResult(List(a)) {
-  case run_many_aux_state([], arg, state) {
+pub fn run_many1(arg: Arg(a), state: State) -> ParseResult(List(a)) {
+  case run_many_aux([], arg, state) {
     #(state, Validated(_, Ok(vs))) ->
       case vs {
         [] -> #(state, v.invalid(vs, [EmptyArgumentList(arg.name)]))

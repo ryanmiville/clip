@@ -1,7 +1,7 @@
 //// Functions for building `Opt`s. An `Opt` is a named option with a
 //// value, such as `--name "Drew"`
 
-import clip/internal/aliases.{type Args, type FnResult, type ParseResult}
+import clip/internal/aliases.{type ParseResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, NamedInfo}
 import clip/internal/errors.{MissingOption, TryMapFailed}
 import clip/internal/state.{type State, State}
@@ -175,32 +175,7 @@ pub fn float(opt: Opt(String)) -> Opt(Float) {
   })
 }
 
-/// Run an `Opt(a)` against a list of arguments. Used internally by `clip`, not
-/// intended for direct usage.
-pub fn run(opt: Opt(a), args: Args) -> FnResult(a) {
-  let long_name = "--" <> opt.name
-  let short_name = option.map(opt.short, fn(s) { "-" <> s })
-  case args, opt.default {
-    [key, val, ..rest], _ if key == long_name || Some(key) == short_name -> {
-      case opt.try_map(val) {
-        #(default, Ok(a)) -> #(default, Ok(#(a, rest)))
-        #(default, Error(e)) -> #(default, errors.fail(TryMapFailed(e)))
-      }
-    }
-    [head, ..rest], _ -> {
-      let #(default, result) = run(opt, rest)
-      let result = result.map(result, fn(v) { #(v.0, [head, ..v.1]) })
-      #(default, result)
-    }
-    [], Some(v) -> #(v, Ok(#(v, [])))
-    [], None -> #(
-      opt.try_map("").0,
-      errors.fail(MissingOption(opt.name, opt.short)),
-    )
-  }
-}
-
-pub fn run_state(opt: Opt(a), state: State) -> ParseResult(a) {
+pub fn run(opt: Opt(a), state: State) -> ParseResult(a) {
   let long_name = "--" <> opt.name
   let short_name = option.map(opt.short, fn(s) { "-" <> s })
   let State(args, info) = state
@@ -212,8 +187,7 @@ pub fn run_state(opt: Opt(a), state: State) -> ParseResult(a) {
       }
     }
     [head, ..rest], _ -> {
-      let #(State(new_args, new_info), validated) =
-        run_state(opt, State(rest, info))
+      let #(State(new_args, new_info), validated) = run(opt, State(rest, info))
       #(State([head, ..new_args], new_info), validated)
     }
     [], Some(value) -> #(state, v.valid(value))

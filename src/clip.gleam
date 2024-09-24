@@ -54,27 +54,27 @@ fn do_next(first: Command(a), next: fn(a) -> Command(b)) -> Command(b) {
 }
 
 pub fn opt(opt: Opt(a), next: fn(a) -> Command(b)) -> Command(b) {
-  to_command(opt, opt.to_arg_info, opt.run_state)
+  to_command(opt, opt.to_arg_info, opt.run)
   |> do_next(next)
 }
 
 pub fn arg(arg: Arg(a), next: fn(a) -> Command(b)) -> Command(b) {
-  to_command(arg, arg.to_arg_info, arg.run_state)
+  to_command(arg, arg.to_arg_info, arg.run)
   |> do_next(next)
 }
 
 pub fn arg_many(arg: Arg(a), next: fn(List(a)) -> Command(b)) -> Command(b) {
-  to_command(arg, arg.to_arg_info_many, arg.run_many_state)
+  to_command(arg, arg.to_arg_info_many, arg.run_many)
   |> do_next(next)
 }
 
 pub fn arg_many1(arg: Arg(a), next: fn(List(a)) -> Command(b)) -> Command(b) {
-  to_command(arg, arg.to_arg_info_many1, arg.run_many1_state)
+  to_command(arg, arg.to_arg_info_many1, arg.run_many1)
   |> do_next(next)
 }
 
 pub fn flag(flag: Flag, next: fn(Bool) -> Command(a)) -> Command(a) {
-  to_command(flag, flag.to_arg_info, flag.run_state)
+  to_command(flag, flag.to_arg_info, flag.run)
   |> do_next(next)
 }
 
