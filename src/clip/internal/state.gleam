@@ -1,8 +1,7 @@
-import clip/internal/aliases.{type Args}
 import clip/internal/arg_info.{type ArgInfo}
 
 pub type State {
-  State(rest: Args, info: ArgInfo)
+  State(rest: List(String), info: ArgInfo)
 }
 
 pub fn combine(s1: State, s2: State) {

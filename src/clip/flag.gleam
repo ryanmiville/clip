@@ -2,11 +2,9 @@
 //// associated value, such as `--debug`. A `Flag` produces `True` when present
 //// and `False` when not present.
 
-import clip/internal/aliases.{type Args, type FnResult}
+import clip/internal/aliases.{type Args, type FnResult, type ParseResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
-import clip/internal/errors.{type ClipError}
 import clip/internal/state.{type State, State}
-import clip/internal/validated.{type Validated, Validated}
 import clip/internal/validated as v
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -66,10 +64,7 @@ pub fn run(flag: Flag, args: Args) -> FnResult(Bool) {
   }
 }
 
-pub fn run_state(
-  flag: Flag,
-  state: State,
-) -> #(State, Validated(Bool, ClipError)) {
+pub fn run_state(flag: Flag, state: State) -> ParseResult(Bool) {
   let long_name = "--" <> flag.name
   let short_name = option.map(flag.short, fn(s) { "-" <> s })
   let State(args, info) = state

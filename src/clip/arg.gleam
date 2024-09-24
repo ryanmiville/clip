@@ -1,13 +1,11 @@
 //// Functions for building `Arg`s. An `Arg` is a positional option.
 
-import clip/internal/aliases.{type Args, type FnResult}
+import clip/internal/aliases.{type Args, type FnResult, type ParseResult}
 import clip/internal/arg_info.{
   type ArgInfo, type PositionalInfo, ArgInfo, Many1Repeat, ManyRepeat, NoRepeat,
   PositionalInfo,
 }
-import clip/internal/errors.{
-  type ClipError, EmptyArgumentList, MissingArgument, TryMapFailed,
-}
+import clip/internal/errors.{EmptyArgumentList, MissingArgument, TryMapFailed}
 import clip/internal/state.{type State, State}
 import clip/internal/validated.{type Validated, Validated}
 import clip/internal/validated as v
@@ -200,7 +198,7 @@ pub fn run(arg: Arg(a), args: Args) -> FnResult(a) {
   }
 }
 
-pub fn run_state(arg: Arg(a), state: State) -> #(State, Validated(a, ClipError)) {
+pub fn run_state(arg: Arg(a), state: State) -> ParseResult(a) {
   let State(args, info) = state
   case args, arg.default {
     [head, ..rest], _ -> {
@@ -244,7 +242,7 @@ fn run_many_aux_state(
   acc: List(a),
   arg: Arg(a),
   state: State,
-) -> #(State, Validated(List(a), ClipError)) {
+) -> ParseResult(List(a)) {
   let State(args, _) = state
   case args {
     [] -> #(state, v.valid(list.reverse(acc)))
@@ -263,10 +261,7 @@ pub fn run_many(arg: Arg(a), args: Args) -> FnResult(List(a)) {
   run_many_aux([], arg, args)
 }
 
-pub fn run_many_state(
-  arg: Arg(a),
-  state: State,
-) -> #(State, Validated(List(a), ClipError)) {
+pub fn run_many_state(arg: Arg(a), state: State) -> ParseResult(List(a)) {
   run_many_aux_state([], arg, state)
 }
 
@@ -283,10 +278,7 @@ pub fn run_many1(arg: Arg(a), args: Args) -> FnResult(List(a)) {
   }
 }
 
-pub fn run_many1_state(
-  arg: Arg(a),
-  state: State,
-) -> #(State, Validated(List(a), ClipError)) {
+pub fn run_many1_state(arg: Arg(a), state: State) -> ParseResult(List(a)) {
   case run_many_aux_state([], arg, state) {
     #(state, Validated(_, Ok(vs))) ->
       case vs {

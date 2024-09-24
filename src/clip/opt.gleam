@@ -1,11 +1,10 @@
 //// Functions for building `Opt`s. An `Opt` is a named option with a
 //// value, such as `--name "Drew"`
 
-import clip/internal/aliases.{type Args, type FnResult}
+import clip/internal/aliases.{type Args, type FnResult, type ParseResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, NamedInfo}
-import clip/internal/errors.{type ClipError, MissingOption, TryMapFailed}
+import clip/internal/errors.{MissingOption, TryMapFailed}
 import clip/internal/state.{type State, State}
-import clip/internal/validated.{type Validated}
 import clip/internal/validated as v
 import gleam/float
 import gleam/int
@@ -201,7 +200,7 @@ pub fn run(opt: Opt(a), args: Args) -> FnResult(a) {
   }
 }
 
-pub fn run_state(opt: Opt(a), state: State) -> #(State, Validated(a, ClipError)) {
+pub fn run_state(opt: Opt(a), state: State) -> ParseResult(a) {
   let long_name = "--" <> opt.name
   let short_name = option.map(opt.short, fn(s) { "-" <> s })
   let State(args, info) = state

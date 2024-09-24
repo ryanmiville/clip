@@ -1,5 +1,6 @@
 import clip/arg.{type Arg}
 import clip/flag.{type Flag}
+import clip/internal/aliases.{type ParseResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
 import clip/internal/errors.{Help, NoSubcommandsProvided}
 import clip/internal/parser.{type Parser}
@@ -31,7 +32,7 @@ pub fn combine(c1: Command(a), c2: Command(b)) -> Command(b) {
 fn to_command(
   arg_type: arg_type,
   to_arg_info: fn(arg_type) -> ArgInfo,
-  run: fn(arg_type, State) -> #(State, Validated(a, ClipError)),
+  run: fn(arg_type, State) -> ParseResult(a),
 ) -> Command(a) {
   fn(state: State) {
     let info = arg_info.merge(state.info, to_arg_info(arg_type))
@@ -106,7 +107,7 @@ fn run_subcommands(
   subcommands: List(#(String, Command(a))),
   default: a,
   state: State,
-) -> #(State, Validated(a, ClipError)) {
+) -> ParseResult(a) {
   let State(args, info) = state
   case subcommands, args {
     [#(name, command), ..], [head, ..rest] if name == head ->
@@ -120,7 +121,7 @@ fn run_subcommands_with_default(
   subcommands: List(#(String, Command(a))),
   default: Command(a),
   state: State,
-) -> #(State, Validated(a, ClipError)) {
+) -> ParseResult(a) {
   let State(args, info) = state
   case subcommands, args {
     [#(name, command), ..], [head, ..rest] if name == head ->
