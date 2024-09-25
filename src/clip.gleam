@@ -5,7 +5,7 @@ import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
 import clip/internal/errors.{Help, NoSubcommandsProvided}
 import clip/internal/parser.{type Parser}
 import clip/internal/state.{type State, State}
-import clip/internal/validated.{type Validated, Validated}
+import clip/internal/validated.{Invalid, Valid}
 import clip/opt.{type Opt}
 import gleam/list
 import gleam/option.{Some}
@@ -39,11 +39,8 @@ fn to_command(
     let state = State(..state, info:)
     let #(new_state, val) = run(arg_type, state)
     case val {
-      Validated(_, Ok(a)) -> #(new_state, validated.valid(a))
-      Validated(default, Error(errors)) -> #(
-        new_state,
-        validated.invalid(default, errors),
-      )
+      Valid(a) -> #(new_state, Valid(a))
+      Invalid(default, errors) -> #(new_state, Invalid(default, errors))
     }
   }
 }
@@ -96,8 +93,8 @@ pub fn subcommands(subcommands: List(#(String, Command(a)))) -> Command(a) {
   let assert Ok(#(_, cmd)) = list.first(subcommands)
   fn(state) {
     let default = fn(inner) {
-      let #(_, Validated(default_value, _)) = cmd(inner)
-      #(state, validated.invalid(default_value, [NoSubcommandsProvided]))
+      let #(_, val) = cmd(inner)
+      #(state, Invalid(validated.unwrap(val), [NoSubcommandsProvided]))
     }
     run_subcommands_with_default(subcommands, default, state)
   }
@@ -113,7 +110,7 @@ fn run_subcommands(
     [#(name, command), ..], [head, ..rest] if name == head ->
       command(State(rest, info))
     [_, ..rest], _ -> run_subcommands(rest, default, state)
-    [], _ -> #(state, validated.invalid(default, [NoSubcommandsProvided]))
+    [], _ -> #(state, Invalid(default, [NoSubcommandsProvided]))
   }
 }
 
@@ -146,13 +143,13 @@ pub fn add_help(
 
   fn(state) {
     let State(args, _) = state
-    let #(state, Validated(default, _)) = command(State(..state, rest: [""]))
+    let #(state, val) = command(State(..state, rest: [""]))
 
     case args {
       ["-h", ..] | ["--help", ..] -> {
         #(
           state,
-          validated.invalid(default, [
+          Invalid(validated.unwrap(val), [
             Help(arg_info.help_text(
               arg_info.merge(state.info, help_info),
               name,
@@ -171,7 +168,7 @@ pub fn add_help(
 pub fn run(command: Command(a), args: List(String)) -> Result(a, ClipErrors) {
   let state = State(args, arg_info.empty())
   let #(_, validated) = command(state)
-  validated.result
+  validated.to_result(validated)
 }
 
 pub fn error_message(errors: ClipErrors) -> String {

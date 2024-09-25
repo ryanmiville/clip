@@ -1,4 +1,4 @@
-import clip/internal/validated.{type Validated, Validated}
+import clip/internal/validated.{type Validated, Invalid, Valid}
 import clip/internal/validated as v
 import gleam/list
 
@@ -16,7 +16,7 @@ pub fn do(
 }
 
 pub fn pure(value: ok) -> Parser(ok, error, state) {
-  fn(state) { #(state, v.valid(value)) }
+  fn(state) { #(state, Valid(value)) }
 }
 
 pub fn try(
@@ -24,12 +24,13 @@ pub fn try(
   and_then: fn(a) -> Parser(b, error, state),
 ) -> Parser(b, error, state) {
   use va <- do(first_try)
-  let a = v.get_or_default(va)
+  let a = v.unwrap(va)
   use vb <- do(and_then(a))
-  case va.result, vb.result {
-    Ok(_), _ -> return(vb)
-    Error(e1), Ok(b) -> return(v.invalid(b, e1))
-    Error(e1), Error(e2) -> return(v.invalid(vb.default, list.append(e1, e2)))
+  case va, vb {
+    Valid(_), _ -> return(vb)
+    Invalid(_, e1), Valid(b) -> return(Invalid(b, e1))
+    Invalid(_, e1), Invalid(default, e2) ->
+      return(Invalid(default, list.append(e1, e2)))
   }
 }
 

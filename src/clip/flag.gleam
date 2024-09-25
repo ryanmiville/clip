@@ -5,7 +5,7 @@
 import clip/internal/aliases.{type ParseResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
 import clip/internal/state.{type State, State}
-import clip/internal/validated as v
+import clip/internal/validated.{Valid}
 import gleam/option.{type Option, None, Some}
 
 pub opaque type Flag {
@@ -50,9 +50,9 @@ pub fn run(flag: Flag, state: State) -> ParseResult(Bool) {
   let short_name = option.map(flag.short, fn(s) { "-" <> s })
   let State(args, info) = state
   case args {
-    [] -> #(state, v.valid(False))
+    [] -> #(state, Valid(False))
     [head, ..rest] if long_name == head || short_name == Some(head) -> {
-      #(State(rest, info), v.valid(True))
+      #(State(rest, info), Valid(True))
     }
     [head, ..rest] -> {
       let #(State(new_args, new_info), validated) = run(flag, State(rest, info))

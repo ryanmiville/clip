@@ -5,7 +5,7 @@ import clip/internal/aliases.{type ParseResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, NamedInfo}
 import clip/internal/errors.{MissingOption, TryMapFailed}
 import clip/internal/state.{type State, State}
-import clip/internal/validated as v
+import clip/internal/validated.{Invalid, Valid}
 import gleam/float
 import gleam/int
 import gleam/option.{type Option, None, Some}
@@ -182,18 +182,18 @@ pub fn run(opt: Opt(a), state: State) -> ParseResult(a) {
   case args, opt.default {
     [key, val, ..rest], _ if key == long_name || Some(key) == short_name -> {
       case opt.try_map(val) {
-        #(_, Ok(a)) -> #(State(rest, info), v.valid(a))
-        #(default, Error(e)) -> #(state, v.invalid(default, [TryMapFailed(e)]))
+        #(_, Ok(a)) -> #(State(rest, info), Valid(a))
+        #(default, Error(e)) -> #(state, Invalid(default, [TryMapFailed(e)]))
       }
     }
     [head, ..rest], _ -> {
       let #(State(new_args, new_info), validated) = run(opt, State(rest, info))
       #(State([head, ..new_args], new_info), validated)
     }
-    [], Some(value) -> #(state, v.valid(value))
+    [], Some(value) -> #(state, Valid(value))
     [], None -> {
       let default = opt.try_map("").0
-      #(state, v.invalid(default, [MissingOption(opt.name, opt.short)]))
+      #(state, Invalid(default, [MissingOption(opt.name, opt.short)]))
     }
   }
 }

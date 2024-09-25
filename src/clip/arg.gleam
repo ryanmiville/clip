@@ -7,8 +7,7 @@ import clip/internal/arg_info.{
 }
 import clip/internal/errors.{EmptyArgumentList, MissingArgument, TryMapFailed}
 import clip/internal/state.{type State, State}
-import clip/internal/validated.{type Validated, Validated}
-import clip/internal/validated as v
+import clip/internal/validated.{Invalid, Valid}
 import gleam/float
 import gleam/int
 import gleam/list
@@ -186,19 +185,19 @@ pub fn run(arg: Arg(a), state: State) -> ParseResult(a) {
         }
         False -> {
           case arg.try_map(head) {
-            #(_, Ok(a)) -> #(State(rest, info), v.valid(a))
+            #(_, Ok(a)) -> #(State(rest, info), Valid(a))
             #(default, Error(e)) -> #(
               state,
-              v.invalid(default, [TryMapFailed(e)]),
+              Invalid(default, [TryMapFailed(e)]),
             )
           }
         }
       }
     }
-    [], Some(value) -> #(state, v.valid(value))
+    [], Some(value) -> #(state, Valid(value))
     [], None -> {
       let default = arg.try_map("").0
-      #(state, v.invalid(default, [MissingArgument(arg.name)]))
+      #(state, Invalid(default, [MissingArgument(arg.name)]))
     }
   }
 }
@@ -206,11 +205,11 @@ pub fn run(arg: Arg(a), state: State) -> ParseResult(a) {
 fn run_many_aux(acc: List(a), arg: Arg(a), state: State) -> ParseResult(List(a)) {
   let State(args, _) = state
   case args {
-    [] -> #(state, v.valid(list.reverse(acc)))
+    [] -> #(state, Valid(list.reverse(acc)))
     _ ->
       case run(arg, state) {
-        #(state, Validated(_, Ok(a))) -> run_many_aux([a, ..acc], arg, state)
-        #(_, Validated(_, Error(_))) -> #(state, v.valid(list.reverse(acc)))
+        #(state, Valid(a)) -> run_many_aux([a, ..acc], arg, state)
+        #(_, Invalid(_, _)) -> #(state, Valid(list.reverse(acc)))
       }
   }
 }
@@ -221,10 +220,10 @@ pub fn run_many(arg: Arg(a), state: State) -> ParseResult(List(a)) {
 
 pub fn run_many1(arg: Arg(a), state: State) -> ParseResult(List(a)) {
   case run_many_aux([], arg, state) {
-    #(state, Validated(_, Ok(vs))) ->
+    #(state, Valid(vs)) ->
       case vs {
-        [] -> #(state, v.invalid(vs, [EmptyArgumentList(arg.name)]))
-        _ -> #(state, v.valid(vs))
+        [] -> #(state, Invalid(vs, [EmptyArgumentList(arg.name)]))
+        _ -> #(state, Valid(vs))
       }
     #(state, val) -> #(state, val)
   }
