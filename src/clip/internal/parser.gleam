@@ -1,6 +1,6 @@
-import clip/internal/validated.{type Validated, Invalid, Valid}
-import clip/internal/validated as v
 import gleam/list
+import validated.{type Validated, Invalid, Valid}
+import validated as v
 
 pub type Parser(ok, error, state) =
   fn(state) -> #(state, Validated(ok, error))

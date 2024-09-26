@@ -5,10 +5,10 @@ import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
 import clip/internal/errors.{Help, NoSubcommandsProvided}
 import clip/internal/parser.{type Parser}
 import clip/internal/state.{type State, State}
-import clip/internal/validated.{Invalid, Valid}
 import clip/opt.{type Opt}
 import gleam/list
 import gleam/option.{Some}
+import validated.{Invalid, Valid}
 
 pub type ClipError =
   errors.ClipError

@@ -5,12 +5,12 @@ import clip/internal/aliases.{type ParseResult}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, NamedInfo}
 import clip/internal/errors.{MissingOption, TryMapFailed}
 import clip/internal/state.{type State, State}
-import clip/internal/validated.{Invalid, Valid}
 import gleam/float
 import gleam/int
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
+import validated.{Invalid, Valid}
 
 pub opaque type Opt(a) {
   Opt(

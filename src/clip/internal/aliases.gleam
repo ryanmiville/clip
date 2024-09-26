@@ -1,6 +1,6 @@
 import clip/internal/errors.{type ClipError, type ClipErrors}
 import clip/internal/state.{type State}
-import clip/internal/validated.{type Validated}
+import validated.{type Validated}
 
 pub type FnResult(a) =
   #(a, Result(#(a, List(String)), ClipErrors))
