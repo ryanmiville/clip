@@ -19,7 +19,7 @@ pub fn pure(value: ok) -> Parser(ok, error, state) {
   fn(state) { #(state, Valid(value)) }
 }
 
-pub fn try(
+pub fn next(
   first_try: Parser(a, error, state),
   and_then: fn(a) -> Parser(b, error, state),
 ) -> Parser(b, error, state) {

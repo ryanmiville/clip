@@ -46,7 +46,7 @@ fn to_command(
 }
 
 fn do_next(first: Command(a), next: fn(a) -> Command(b)) -> Command(b) {
-  use a <- parser.try(first)
+  use a <- parser.next(first)
   next(a)
 }
 
