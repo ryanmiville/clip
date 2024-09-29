@@ -48,7 +48,7 @@ fn command() {
   use second <- clip.opt(second_opt())
   use third <- clip.opt(third_opt())
   use fourth <- clip.opt(fourth_opt())
-  clip.pure(Args(first:, second:, third:, fourth:))
+  clip.parsed(Args(first:, second:, third:, fourth:))
 }
 
 pub fn main() {

@@ -18,7 +18,7 @@ pub fn complex_command_test() {
       use b <- clip.flag(flag.new("b"))
       use c <- clip.arg(arg.new("c"))
       use d <- clip.arg_many(arg.new("d"))
-      clip.pure(#(a, b, c, d))
+      clip.parsed(#(a, b, c, d))
     }
     |> clip.run(["--a", "a", "--b", "c", "d", "e", "f"])
 
@@ -36,7 +36,7 @@ pub fn opt_and_flag_order_does_not_matter_test() {
       use b <- clip.flag(flag.new("b"))
       use c <- clip.arg(arg.new("c"))
       use d <- clip.arg_many(arg.new("d"))
-      clip.pure(#(a, b, c, d))
+      clip.parsed(#(a, b, c, d))
     }
     |> clip.run(argv)
 
@@ -47,9 +47,9 @@ pub fn opt_and_flag_order_does_not_matter_test() {
 pub fn subcommands_test() {
   let command =
     clip.subcommands([
-      #("a", clip.opt(opt.new("a"), clip.pure)),
-      #("b", clip.opt(opt.new("b"), clip.pure)),
-      #("c", clip.opt(opt.new("c"), clip.pure)),
+      #("a", clip.opt(opt.new("a"), clip.parsed)),
+      #("b", clip.opt(opt.new("b"), clip.parsed)),
+      #("c", clip.opt(opt.new("c"), clip.parsed)),
     ])
 
   command
@@ -69,10 +69,10 @@ pub fn subcommands_with_default_test() {
   let command =
     clip.subcommands_with_default(
       [
-        #("a", clip.opt(opt.new("a"), clip.pure)),
-        #("b", clip.opt(opt.new("b"), clip.pure)),
+        #("a", clip.opt(opt.new("a"), clip.parsed)),
+        #("b", clip.opt(opt.new("b"), clip.parsed)),
       ],
-      clip.opt(opt.new("c"), clip.pure),
+      clip.opt(opt.new("c"), clip.parsed),
     )
 
   command
@@ -95,7 +95,7 @@ pub fn help_test() {
       use second <- clip.opt(opt.new("second") |> opt.help("Second"))
       use third <- clip.opt(opt.new("third") |> opt.help("Third"))
       use fourth <- clip.opt(opt.new("fourth") |> opt.help("Fourth"))
-      clip.pure(#(first, second, third, fourth))
+      clip.parsed(#(first, second, third, fourth))
     }
     |> clip.add_help("help-test", "Test for help message")
     |> clip.run(["--help"])

@@ -11,7 +11,7 @@ type Person {
 fn command() {
   use name <- clip.opt(opt.new("name") |> opt.help("Your name"))
   use age <- clip.opt(opt.new("age") |> opt.int |> opt.help("Your age"))
-  clip.pure(Person(name:, age:))
+  clip.parsed(Person(name:, age:))
 }
 
 pub fn main() {

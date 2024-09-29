@@ -20,7 +20,7 @@ fn command() {
     |> arg.help("Second")
     |> arg.optional,
   )
-  clip.pure(Args(first:, second:))
+  clip.parsed(Args(first:, second:))
 }
 
 pub fn main() {

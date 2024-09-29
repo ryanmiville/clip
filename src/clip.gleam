@@ -1,14 +1,22 @@
-import clip/arg.{type Arg}
-import clip/flag.{type Flag}
-import clip/internal/aliases.{type ParseResult}
-import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
+import clip/internal/arg
+import clip/internal/arg_info.{type ArgInfo, ArgInfo}
 import clip/internal/errors.{Help, NoSubcommandsProvided}
-import clip/internal/parser.{type Parser}
+import clip/internal/flag
+import clip/internal/opt
+import clip/internal/parser.{type ParseResult, type Parser}
 import clip/internal/state.{type State, State}
-import clip/opt.{type Opt}
 import gleam/list
 import gleam/option.{Some}
 import validated.{Invalid, Valid}
+
+pub type Arg(a) =
+  arg.Arg(a)
+
+pub type Flag =
+  flag.Flag
+
+pub type Opt(a) =
+  opt.Opt(a)
 
 pub type ClipError =
   errors.ClipError
@@ -16,17 +24,12 @@ pub type ClipError =
 pub type ClipErrors =
   errors.ClipErrors
 
-pub type Command(a) =
-  Parser(a, ClipError, State)
-
-pub fn pure(val: a) -> Command(a) {
-  parser.pure(val)
+pub opaque type Command(a) {
+  Command(run: Parser(a, ClipError, State))
 }
 
-pub fn combine(c1: Command(a), c2: Command(b)) -> Command(b) {
-  use _ <- parser.do(c1)
-  use b <- parser.do(c2)
-  parser.return(b)
+pub fn parsed(val: a) -> Command(a) {
+  Command(parser.pure(val))
 }
 
 fn to_command(
@@ -34,7 +37,7 @@ fn to_command(
   to_arg_info: fn(arg_type) -> ArgInfo,
   run: fn(arg_type, State) -> ParseResult(a),
 ) -> Command(a) {
-  fn(state: State) {
+  Command(fn(state: State) {
     let info = arg_info.merge(state.info, to_arg_info(arg_type))
     let state = State(..state, info:)
     let #(new_state, val) = run(arg_type, state)
@@ -42,12 +45,14 @@ fn to_command(
       Valid(a) -> #(new_state, Valid(a))
       Invalid(default, errors) -> #(new_state, Invalid(default, errors))
     }
-  }
+  })
 }
 
 fn do_next(first: Command(a), next: fn(a) -> Command(b)) -> Command(b) {
-  use a <- parser.next(first)
-  next(a)
+  Command({
+    use a <- parser.next(first.run)
+    next(a).run
+  })
 }
 
 pub fn opt(opt: Opt(a), next: fn(a) -> Command(b)) -> Command(b) {
@@ -79,25 +84,26 @@ pub fn subcommands_with_default(
   subcommands: List(#(String, Command(a))),
   default: Command(a),
 ) -> Command(a) {
-  fn(state: State) {
+  Command(fn(state: State) {
     let sub_names = list.map(subcommands, fn(p) { p.0 })
     let info = ArgInfo(..state.info, subcommands: sub_names)
     let state = State(..state, info:)
     run_subcommands_with_default(subcommands, default, state)
-  }
+  })
 }
 
 /// Build a command with subcommands. This is an advanced use case, see the
 /// examples directory for more help.
 pub fn subcommands(subcommands: List(#(String, Command(a)))) -> Command(a) {
   let assert Ok(#(_, cmd)) = list.first(subcommands)
-  fn(state) {
-    let default = fn(inner) {
-      let #(_, val) = cmd(inner)
-      #(state, Invalid(validated.unwrap(val), [NoSubcommandsProvided]))
-    }
+  Command(fn(state) {
+    let default =
+      Command(fn(inner) {
+        let #(_, val) = cmd.run(inner)
+        #(state, Invalid(validated.unwrap(val), [NoSubcommandsProvided]))
+      })
     run_subcommands_with_default(subcommands, default, state)
-  }
+  })
 }
 
 fn run_subcommands(
@@ -108,7 +114,7 @@ fn run_subcommands(
   let State(args, info) = state
   case subcommands, args {
     [#(name, command), ..], [head, ..rest] if name == head ->
-      command(State(rest, info))
+      command.run(State(rest, info))
     [_, ..rest], _ -> run_subcommands(rest, default, state)
     [], _ -> #(state, Invalid(default, [NoSubcommandsProvided]))
   }
@@ -122,9 +128,9 @@ fn run_subcommands_with_default(
   let State(args, info) = state
   case subcommands, args {
     [#(name, command), ..], [head, ..rest] if name == head ->
-      command(State(rest, info))
+      command.run(State(rest, info))
     [_, ..rest], _ -> run_subcommands_with_default(rest, default, state)
-    [], _ -> default(state)
+    [], _ -> default.run(state)
   }
 }
 
@@ -137,13 +143,17 @@ pub fn add_help(
     ArgInfo(
       ..arg_info.empty(),
       flags: [
-        FlagInfo(name: "help", short: Some("h"), help: Some("Print this help")),
+        arg_info.FlagInfo(
+          name: "help",
+          short: Some("h"),
+          help: Some("Print this help"),
+        ),
       ],
     )
 
-  fn(state) {
+  Command(fn(state) {
     let State(args, _) = state
-    let #(state, val) = command(State(..state, rest: [""]))
+    let #(state, val) = command.run(State(..state, rest: [""]))
 
     case args {
       ["-h", ..] | ["--help", ..] -> {
@@ -158,16 +168,16 @@ pub fn add_help(
           ]),
         )
       }
-      _ -> command(state)
+      _ -> command.run(state)
     }
-  }
+  })
 }
 
 /// Run a command. Running a `Command(a)` will return either `Ok(a)` or an
 /// `Error(String)`. The `Error` value is intended to be printed to the user.
 pub fn run(command: Command(a), args: List(String)) -> Result(a, ClipErrors) {
   let state = State(args, arg_info.empty())
-  let #(_, validated) = command(state)
+  let #(_, validated) = command.run(state)
   validated.to_result(validated)
 }
 

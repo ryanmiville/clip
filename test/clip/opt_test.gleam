@@ -15,7 +15,7 @@ pub fn opt_test() {
     qcheck.string_non_empty(),
   ))
 
-  let command = clip.opt(opt.new(name), clip.pure)
+  let command = clip.opt(opt.new(name), clip.parsed)
 
   clip.run(command, ["--" <> name, value])
   |> should.equal(Ok(value))
@@ -38,7 +38,7 @@ pub fn try_map_test() {
           Error(Nil) -> Error("Bad int")
         }
       }),
-    clip.pure,
+    clip.parsed,
   )
   |> clip.run(["--" <> name, int.to_string(value)])
   |> should.equal(Ok(value))
@@ -53,7 +53,7 @@ pub fn map_test() {
   clip.opt(
     opt.new(name)
       |> opt.map(string.uppercase),
-    clip.pure,
+    clip.parsed,
   )
   |> clip.run(["--" <> name, value])
   |> should.equal(Ok(string.uppercase(value)))
@@ -65,7 +65,7 @@ pub fn optional_test() {
     qcheck.string_non_empty(),
   ))
 
-  let command = clip.opt(opt.new(name) |> opt.optional, clip.pure)
+  let command = clip.opt(opt.new(name) |> opt.optional, clip.parsed)
 
   clip.run(command, ["--" <> name, value])
   |> should.equal(Ok(Ok(value)))
@@ -81,7 +81,7 @@ pub fn default_test() {
     qcheck.string_non_empty(),
   ))
 
-  let command = clip.opt(opt.new(name) |> opt.default(default), clip.pure)
+  let command = clip.opt(opt.new(name) |> opt.default(default), clip.parsed)
 
   clip.run(command, ["--" <> name, value])
   |> should.equal(Ok(value))
@@ -96,7 +96,7 @@ pub fn int_test() {
     qcheck.small_positive_or_zero_int(),
   ))
 
-  clip.opt(opt.new(name) |> opt.int, clip.pure)
+  clip.opt(opt.new(name) |> opt.int, clip.parsed)
   |> clip.run(["--" <> name, int.to_string(value)])
   |> should.equal(Ok(value))
 }
@@ -107,7 +107,7 @@ pub fn float_test() {
     qcheck.float(),
   ))
 
-  clip.opt(opt.new(name) |> opt.float, clip.pure)
+  clip.opt(opt.new(name) |> opt.float, clip.parsed)
   |> clip.run(["--" <> name, float.to_string(value)])
   |> should.equal(Ok(value))
 }

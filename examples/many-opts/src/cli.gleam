@@ -15,7 +15,7 @@ fn command() {
   use flag <- clip.flag(flag.new("flag") |> flag.help("Flag"))
   use next <- clip.arg(arg.new("next") |> arg.help("Next"))
   use rest <- clip.arg_many(arg.new("rest") |> arg.help("Rest"))
-  clip.pure(Args(named:, flag:, next:, rest:))
+  clip.parsed(Args(named:, flag:, next:, rest:))
 }
 
 pub fn main() {
