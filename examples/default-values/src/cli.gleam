@@ -10,17 +10,17 @@ type Args {
 }
 
 fn command() {
-  use first <- clip.opt(
+  clip.command(fn(first) { fn(second) { Args(first, second) } })
+  |> clip.opt(
     opt.new("first")
     |> opt.help("First")
     |> opt.default("default value"),
   )
-  use second <- clip.arg(
+  |> clip.arg(
     arg.new("second")
     |> arg.help("Second")
     |> arg.optional,
   )
-  clip.parsed(Args(first:, second:))
 }
 
 pub fn main() {
@@ -30,7 +30,7 @@ pub fn main() {
     |> clip.run(argv.load().arguments)
 
   case result {
-    Error(errors) -> clip.error_message(errors) |> io.println_error
-    Ok(person) -> person |> string.inspect |> io.println
+    Error(e) -> io.println_error(e)
+    Ok(args) -> args |> string.inspect |> io.println
   }
 }

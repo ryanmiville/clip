@@ -34,7 +34,7 @@ fn third_opt() {
 fn fourth_opt() {
   opt.new("fourth")
   |> opt.help("Fourth")
-  |> opt.try_map(Foo, fn(v) {
+  |> opt.try_map(fn(v) {
     case v {
       "foo" -> Ok(Foo)
       "bar" -> Ok(Bar)
@@ -44,11 +44,15 @@ fn fourth_opt() {
 }
 
 fn command() {
-  use first <- clip.opt(first_opt())
-  use second <- clip.opt(second_opt())
-  use third <- clip.opt(third_opt())
-  use fourth <- clip.opt(fourth_opt())
-  clip.parsed(Args(first:, second:, third:, fourth:))
+  clip.command(fn(first) {
+    fn(second) {
+      fn(third) { fn(fourth) { Args(first, second, third, fourth) } }
+    }
+  })
+  |> clip.opt(first_opt())
+  |> clip.opt(second_opt())
+  |> clip.opt(third_opt())
+  |> clip.opt(fourth_opt())
 }
 
 pub fn main() {
@@ -58,7 +62,7 @@ pub fn main() {
     |> clip.run(argv.load().arguments)
 
   case result {
-    Error(errors) -> clip.error_message(errors) |> io.println_error
-    Ok(person) -> person |> string.inspect |> io.println
+    Error(e) -> io.println_error(e)
+    Ok(args) -> args |> string.inspect |> io.println
   }
 }

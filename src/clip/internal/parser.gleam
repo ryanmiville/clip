@@ -1,4 +1,3 @@
-import clip/internal/errors.{type ClipError}
 import clip/internal/state.{type State}
 import gleam/list
 import validated.{type Validated, Invalid, Valid}
@@ -8,7 +7,7 @@ pub type Parser(ok, error, state) =
   fn(state) -> #(state, Validated(ok, error))
 
 pub type ParseResult(a) =
-  #(State, Validated(a, ClipError))
+  #(State, Validated(a, String))
 
 pub fn do(
   first_do: Parser(a, error, state),

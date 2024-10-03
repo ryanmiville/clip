@@ -1,5 +1,5 @@
 name = "clip"
-version = "0.1.0"
+version = "0.4.1"
 
 description = "A CLI Option Parser for Gleam"
 licences = ["MIT"]
@@ -10,6 +10,7 @@ gleam = ">= 1.4.0"
 [dependencies]
 gleam_stdlib = ">= 0.34.0 and < 2.0.0"
 validated = ">= 0.2.0 and < 1.0.0"
+
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
 qcheck = ">= 0.0.4 and < 2.0.0"

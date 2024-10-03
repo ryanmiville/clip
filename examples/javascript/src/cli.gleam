@@ -21,7 +21,7 @@ pub fn main() {
     |> clip.run(argv.load().arguments)
 
   case result {
-    Error(e) -> io.println_error(e)
+    Error(e) -> io.println(e)
     Ok(person) -> person |> string.inspect |> io.println
   }
 }

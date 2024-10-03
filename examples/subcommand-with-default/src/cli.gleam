@@ -12,21 +12,21 @@ type Args {
 }
 
 fn foo_command() {
-  use a <- clip.opt(opt.new("a") |> opt.help("A"))
-  use b <- clip.opt(opt.new("b") |> opt.help("B") |> opt.int)
-  clip.parsed(Foo(a:, b:))
+  clip.command(fn(a) { fn(b) { Foo(a, b) } })
+  |> clip.opt(opt.new("a") |> opt.help("A"))
+  |> clip.opt(opt.new("b") |> opt.help("B") |> opt.int)
   |> clip.add_help("subcommand foo", "Run foo")
 }
 
 fn bar_command() {
-  use c <- clip.flag(flag.new("c") |> flag.help("C"))
-  clip.parsed(Bar(c:))
+  clip.command(fn(c) { Bar(c) })
+  |> clip.flag(flag.new("c") |> flag.help("C"))
   |> clip.add_help("subcommand bar", "Run bar")
 }
 
 fn baz_command() {
-  use d <- clip.opt(opt.new("d") |> opt.help("D") |> opt.float)
-  clip.parsed(TopLevel(d:))
+  clip.command(fn(d) { TopLevel(d) })
+  |> clip.opt(opt.new("d") |> opt.help("D") |> opt.float)
   |> clip.add_help("top-level", "Run top-level")
 }
 
@@ -44,7 +44,7 @@ pub fn main() {
     |> clip.run(argv.load().arguments)
 
   case result {
-    Error(errors) -> clip.error_message(errors) |> io.println_error
-    Ok(person) -> person |> string.inspect |> io.println
+    Error(e) -> io.println_error(e)
+    Ok(args) -> args |> string.inspect |> io.println
   }
 }

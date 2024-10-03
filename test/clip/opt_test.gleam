@@ -1,35 +1,32 @@
 import clip
-import clip/internal/errors.{MissingOption}
 import clip/opt
 import gleam/float
 import gleam/int
-import gleam/option.{None}
 import gleam/string
 import gleeunit/should
 import qcheck
-import qcheck/util.{given}
+import test_helper/qcheck_util
 
 pub fn opt_test() {
-  use #(name, value) <- given(qcheck.tuple2(
-    qcheck.string_non_empty(),
-    qcheck.string_non_empty(),
+  use #(name, value) <- qcheck_util.given(qcheck.tuple2(
+    qcheck_util.clip_string(),
+    qcheck_util.clip_string(),
   ))
 
-  let command = clip.opt(opt.new(name), clip.parsed)
+  let command = clip.opt(opt.new(name), clip.return)
 
   clip.run(command, ["--" <> name, value])
   |> should.equal(Ok(value))
 
   clip.run(command, [])
-  |> should.equal(errors.fail(MissingOption(name, None)))
+  |> should.equal(Error("missing required arg: --" <> name))
 }
 
 pub fn try_map_test() {
-  use #(name, value) <- given(qcheck.tuple2(
-    qcheck.string_non_empty(),
+  use #(name, value) <- qcheck_util.given(qcheck.tuple2(
+    qcheck_util.clip_string(),
     qcheck.small_positive_or_zero_int(),
   ))
-
   clip.opt(
     opt.new(name)
       |> opt.try_map(0, fn(s) {
@@ -38,34 +35,34 @@ pub fn try_map_test() {
           Error(Nil) -> Error("Bad int")
         }
       }),
-    clip.parsed,
+    clip.return,
   )
   |> clip.run(["--" <> name, int.to_string(value)])
   |> should.equal(Ok(value))
 }
 
 pub fn map_test() {
-  use #(name, value) <- given(qcheck.tuple2(
-    qcheck.string_non_empty(),
-    qcheck.string_non_empty(),
+  use #(name, value) <- qcheck_util.given(qcheck.tuple2(
+    qcheck_util.clip_string(),
+    qcheck_util.clip_string(),
   ))
 
   clip.opt(
     opt.new(name)
       |> opt.map(string.uppercase),
-    clip.parsed,
+    clip.return,
   )
   |> clip.run(["--" <> name, value])
   |> should.equal(Ok(string.uppercase(value)))
 }
 
 pub fn optional_test() {
-  use #(name, value) <- given(qcheck.tuple2(
-    qcheck.string_non_empty(),
-    qcheck.string_non_empty(),
+  use #(name, value) <- qcheck_util.given(qcheck.tuple2(
+    qcheck_util.clip_string(),
+    qcheck_util.clip_string(),
   ))
 
-  let command = clip.opt(opt.new(name) |> opt.optional, clip.parsed)
+  let command = clip.opt(opt.new(name) |> opt.optional, clip.return)
 
   clip.run(command, ["--" <> name, value])
   |> should.equal(Ok(Ok(value)))
@@ -75,13 +72,13 @@ pub fn optional_test() {
 }
 
 pub fn default_test() {
-  use #(name, value, default) <- given(qcheck.tuple3(
-    qcheck.string_non_empty(),
-    qcheck.string_non_empty(),
-    qcheck.string_non_empty(),
+  use #(name, value, default) <- qcheck_util.given(qcheck.tuple3(
+    qcheck_util.clip_string(),
+    qcheck_util.clip_string(),
+    qcheck_util.clip_string(),
   ))
 
-  let command = clip.opt(opt.new(name) |> opt.default(default), clip.parsed)
+  let command = clip.opt(opt.new(name) |> opt.default(default), clip.return)
 
   clip.run(command, ["--" <> name, value])
   |> should.equal(Ok(value))
@@ -91,23 +88,23 @@ pub fn default_test() {
 }
 
 pub fn int_test() {
-  use #(name, value) <- given(qcheck.tuple2(
-    qcheck.string_non_empty(),
+  use #(name, value) <- qcheck_util.given(qcheck.tuple2(
+    qcheck_util.clip_string(),
     qcheck.small_positive_or_zero_int(),
   ))
 
-  clip.opt(opt.new(name) |> opt.int, clip.parsed)
+  clip.opt(opt.new(name) |> opt.int, clip.return)
   |> clip.run(["--" <> name, int.to_string(value)])
   |> should.equal(Ok(value))
 }
 
 pub fn float_test() {
-  use #(name, value) <- given(qcheck.tuple2(
-    qcheck.string_non_empty(),
+  use #(name, value) <- qcheck_util.given(qcheck.tuple2(
+    qcheck_util.clip_string(),
     qcheck.float(),
   ))
 
-  clip.opt(opt.new(name) |> opt.float, clip.parsed)
+  clip.opt(opt.new(name) |> opt.float, clip.return)
   |> clip.run(["--" <> name, float.to_string(value)])
   |> should.equal(Ok(value))
 }

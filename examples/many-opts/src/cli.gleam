@@ -11,11 +11,13 @@ type Args {
 }
 
 fn command() {
-  use named <- clip.opt(opt.new("named") |> opt.help("Named"))
-  use flag <- clip.flag(flag.new("flag") |> flag.help("Flag"))
-  use next <- clip.arg(arg.new("next") |> arg.help("Next"))
-  use rest <- clip.arg_many(arg.new("rest") |> arg.help("Rest"))
-  clip.parsed(Args(named:, flag:, next:, rest:))
+  clip.command(fn(named) {
+    fn(flag) { fn(next) { fn(rest) { Args(named, flag, next, rest) } } }
+  })
+  |> clip.opt(opt.new("named") |> opt.help("Named"))
+  |> clip.flag(flag.new("flag") |> flag.help("Flag"))
+  |> clip.arg(arg.new("next") |> arg.help("Next"))
+  |> clip.arg_many(arg.new("rest") |> arg.help("Rest"))
 }
 
 pub fn main() {
@@ -25,7 +27,7 @@ pub fn main() {
     |> clip.run(argv.load().arguments)
 
   case result {
-    Error(errors) -> clip.error_message(errors) |> io.println_error
-    Ok(person) -> person |> string.inspect |> io.println
+    Error(e) -> io.println_error(e)
+    Ok(args) -> args |> string.inspect |> io.println
   }
 }
