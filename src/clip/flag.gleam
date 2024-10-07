@@ -5,8 +5,8 @@
 import clip/internal/arg_info.{type ArgInfo, ArgInfo, FlagInfo}
 import clip/internal/parser.{type ParseResult}
 import clip/internal/state.{type State, State}
+import clip/internal/validated.{Valid}
 import gleam/option.{type Option, None, Some}
-import validated.{Valid}
 
 pub opaque type Flag {
   Flag(name: String, help: Option(String), short: Option(String))

@@ -6,13 +6,13 @@ import clip/internal/arg_info.{
 }
 import clip/internal/parser.{type ParseResult}
 import clip/internal/state.{type State, State}
+import clip/internal/validated.{Invalid, Valid}
 import gleam/float
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
-import validated.{Invalid, Valid}
 
 pub opaque type Arg(a) {
   Arg(

@@ -1,7 +1,6 @@
 import clip/internal/state.{type State}
+import clip/internal/validated.{type Validated, Invalid, Valid}
 import gleam/list
-import validated.{type Validated, Invalid, Valid}
-import validated as v
 
 pub type Parser(ok, error, state) =
   fn(state) -> #(state, Validated(ok, error))
@@ -28,7 +27,7 @@ pub fn next(
   and_then: fn(a) -> Parser(b, error, state),
 ) -> Parser(b, error, state) {
   use va <- do(first_try)
-  let a = v.unwrap(va)
+  let a = validated.unwrap(va)
   use vb <- do(and_then(a))
   case va, vb {
     Valid(_), _ -> return(vb)

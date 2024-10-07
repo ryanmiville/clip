@@ -5,12 +5,12 @@ import clip/flag.{type Flag}
 import clip/internal/arg_info.{type ArgInfo, ArgInfo}
 import clip/internal/parser.{type ParseResult, type Parser}
 import clip/internal/state.{type State, State}
+import clip/internal/validated.{Invalid, Valid}
 import clip/opt.{type Opt}
 import gleam/list
 import gleam/option.{Some}
 import gleam/result
 import gleam/string
-import validated.{Invalid, Valid}
 
 pub opaque type Command(a) {
   Command(run: Parser(a, String, State))
